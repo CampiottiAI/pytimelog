@@ -60,7 +60,7 @@ class TerminalUI:
     def reload_entries(self) -> None:
         self.entries = read_entries()
 
-    def draw_box(self, y: int, x: int, height: int, width: int, title: str) -> None:
+    def draw_box(self, y: int, x: int, height: int, width: int, title: str, highlight: bool = False) -> None:
         if height < 2 or width < 2:
             return
         right = x + width - 1
@@ -72,22 +72,24 @@ class TerminalUI:
         hline = getattr(curses, "ACS_HLINE", ord("-"))
         vline = getattr(curses, "ACS_VLINE", ord("|"))
         try:
-            self.stdscr.addch(y, x, ul)
+            attr = curses.color_pair(3) | curses.A_BOLD if highlight else curses.A_NORMAL
+
+            self.stdscr.addch(y, x, ul, attr)
             for col in range(x + 1, right):
-                self.stdscr.addch(y, col, hline)
-            self.stdscr.addch(y, right, ur)
+                self.stdscr.addch(y, col, hline, attr)
+            self.stdscr.addch(y, right, ur, attr)
 
             for row in range(y + 1, bottom):
-                self.stdscr.addch(row, x, vline)
-                self.stdscr.addch(row, right, vline)
+                self.stdscr.addch(row, x, vline, attr)
+                self.stdscr.addch(row, right, vline, attr)
 
-            self.stdscr.addch(bottom, x, ll)
+            self.stdscr.addch(bottom, x, ll, attr)
             for col in range(x + 1, right):
-                self.stdscr.addch(bottom, col, hline)
-            self.stdscr.addch(bottom, right, lr)
+                self.stdscr.addch(bottom, col, hline, attr)
+            self.stdscr.addch(bottom, right, lr, attr)
             title_text = f" {title} "
             if len(title_text) < width - 2:
-                self.stdscr.addstr(y, x + 2, title_text)
+                self.stdscr.addstr(y, x + 2, title_text, attr)
         except curses.error:
             # Ignore drawing errors on very small terminals/resizes.
             pass
@@ -144,9 +146,10 @@ class TerminalUI:
         start_utc, end_utc = self.day_window(now)
         summaries = self.summarize_entries(start_utc, end_utc, now)
         title = "[2]-Day summary"
-        if self.focus_section == "day":
+        highlight = self.focus_section == "day"
+        if highlight:
             title += " (scroll)"
-        self.draw_box(y, x, height, width, title)
+        self.draw_box(y, x, height, width, title, highlight=highlight)
         inner_width = width - 2
         max_lines = max(0, height - 2)
         if max_lines <= 0:
@@ -166,9 +169,10 @@ class TerminalUI:
         start_utc, end_utc = self.week_window(now)
         summaries = self.summarize_entries(start_utc, end_utc, now)
         title = "[3]-Week summary"
-        if self.focus_section == "week":
+        highlight = self.focus_section == "week"
+        if highlight:
             title += " (scroll)"
-        self.draw_box(y, x, height, width, title)
+        self.draw_box(y, x, height, width, title, highlight=highlight)
         inner_width = width - 2
         max_lines = max(0, height - 2)
         if max_lines <= 0:
