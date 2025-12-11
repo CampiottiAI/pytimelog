@@ -62,13 +62,26 @@ class TerminalUI:
             return
         right = x + width - 1
         bottom = y + height - 1
-        horizontal = "-" * (width - 2)
+        ul = getattr(curses, "ACS_ULCORNER", ord("+"))
+        ur = getattr(curses, "ACS_URCORNER", ord("+"))
+        ll = getattr(curses, "ACS_LLCORNER", ord("+"))
+        lr = getattr(curses, "ACS_LRCORNER", ord("+"))
+        hline = getattr(curses, "ACS_HLINE", ord("-"))
+        vline = getattr(curses, "ACS_VLINE", ord("|"))
         try:
-            self.stdscr.addstr(y, x, "+" + horizontal + "+")
+            self.stdscr.addch(y, x, ul)
+            for col in range(x + 1, right):
+                self.stdscr.addch(y, col, hline)
+            self.stdscr.addch(y, right, ur)
+
             for row in range(y + 1, bottom):
-                self.stdscr.addstr(row, x, "|")
-                self.stdscr.addstr(row, right, "|")
-            self.stdscr.addstr(bottom, x, "+" + horizontal + "+")
+                self.stdscr.addch(row, x, vline)
+                self.stdscr.addch(row, right, vline)
+
+            self.stdscr.addch(bottom, x, ll)
+            for col in range(x + 1, right):
+                self.stdscr.addch(bottom, col, hline)
+            self.stdscr.addch(bottom, right, lr)
             title_text = f" {title} "
             if len(title_text) < width - 2:
                 self.stdscr.addstr(y, x + 2, title_text)
