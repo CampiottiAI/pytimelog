@@ -27,3 +27,10 @@ Tags are parsed from `#tag` words in the text. Entries without tags roll up unde
 ## UI mode
 
 The `ui` command launches a simple window similar to gtimelog: type what you're doing and click **Start**, click **Stop** to finish, and see today's entries listed with durations. It uses the same log file as the CLI. Requires Tk (bundled with most Python installs).
+
+## Tagging details
+
+- Tags are any words starting with `#` in the entry text: `Write docs #project #writing`.
+- Multiple tags are allowed; time is counted toward each tag independently.
+- If no tags are present, the time is grouped under `(untagged)`.
+- Reports summarize by tag; tags are case-insensitive for sorting but keep their original spelling in output.
