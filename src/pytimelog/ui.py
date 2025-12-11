@@ -194,6 +194,10 @@ class TimeLogApp:
 
 def launch_ui() -> None:
     root = tk.Tk()
+    root.lift()
+    root.attributes("-topmost", True)
+    root.after(1000, lambda: root.attributes("-topmost", True))
+    root.focus_force()
     app = TimeLogApp(root)
     root.mainloop()
 
