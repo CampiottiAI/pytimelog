@@ -200,6 +200,12 @@ def command_ui(_: argparse.Namespace) -> None:
     launch_ui()
 
 
+def command_tui(_: argparse.Namespace) -> None:
+    from .tui import launch_tui
+
+    launch_tui()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Tiny time logger inspired by gtimelog.",
@@ -256,8 +262,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     report_parser.set_defaults(func=command_report)
 
-    ui_parser = subparsers.add_parser("ui", help="Launch windowed UI.")
+    ui_parser = subparsers.add_parser("ui", help="Launch windowed Tk UI.")
     ui_parser.set_defaults(func=command_ui)
+
+    tui_parser = subparsers.add_parser("tui", help="Launch terminal UI.")
+    tui_parser.set_defaults(func=command_tui)
 
     return parser
 

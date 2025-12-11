@@ -21,12 +21,24 @@ pytimelog report --from 2024-01-01 --to 2024-01-07
 - `status` — show the current running entry, if any.
 - `report [--from DATE] [--to DATE] [--week|--last-week]` — totals by tag for a date or range (local dates, UTC storage), with shortcuts for this or last week.
 - `ui` — open a small Tk window to start/stop and view today's entries.
+- `tui` — open a curses terminal UI with lazygit-like panes and shortcuts.
 
 Tags are parsed from `#tag` words in the text. Entries without tags roll up under `(untagged)`.
 
 ## UI mode
 
 The `ui` command launches a simple window similar to gtimelog: type what you're doing and click **Start**, click **Stop** to finish, and see today's entries listed with durations. It uses the same log file as the CLI. Requires Tk (bundled with most Python installs).
+
+## Terminal UI
+
+Run `pytimelog tui` for a split-pane terminal view (inspired by lazygit) that shows today's or this week's entries, highlights the running entry, and lets you start/stop without leaving the keyboard.
+
+- `↑/↓` or `k/j` to move through entries
+- `v` toggles between today/week views
+- `n` starts a new entry (prompts for text)
+- `x` stops the running entry
+- `r` reloads the log file
+- `q` quits
 
 ## Tagging details
 
