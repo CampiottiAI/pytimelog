@@ -7,6 +7,12 @@ from typing import List
 
 from .storage import Entry, append_entry, find_open, read_entries, write_entries
 
+ACCENT = "#1f6feb"  # blue
+SUCCESS = "#0e8a16"  # green
+TEXT_FONT = ("Helvetica", 12)
+STRONG_FONT = ("Helvetica", 13, "bold")
+MONO_FONT = ("Courier", 12)
+
 
 def local_now() -> datetime:
     return datetime.now().astimezone().replace(microsecond=0)
@@ -48,28 +54,38 @@ class TimeLogApp:
         self.root.title("pytimelog")
         self.entries: List[Entry] = []
 
-        self.status_label = tk.Label(root, text="Loading…", anchor="w", font=("Helvetica", 12))
-        self.status_label.pack(fill="x", padx=8, pady=(8, 4))
+        self.status_label = tk.Label(
+            root, text="Loading…", anchor="w", font=STRONG_FONT, fg=ACCENT
+        )
+        self.status_label.pack(fill="x", padx=10, pady=(10, 4))
 
-        self.summary_label = tk.Label(root, text="", anchor="w", font=("Helvetica", 11))
-        self.summary_label.pack(fill="x", padx=8, pady=(0, 6))
+        self.summary_label = tk.Label(
+            root, text="", anchor="w", font=STRONG_FONT, fg=SUCCESS, justify="left"
+        )
+        self.summary_label.pack(fill="x", padx=10, pady=(0, 8))
 
         form = tk.Frame(root)
-        form.pack(fill="x", padx=8, pady=4)
-        tk.Label(form, text="What are you doing?").pack(anchor="w")
-        self.entry_text = tk.Entry(form)
-        self.entry_text.pack(fill="x", pady=4)
+        form.pack(fill="x", padx=10, pady=6)
+        tk.Label(form, text="What are you doing?", font=TEXT_FONT).pack(anchor="w")
+        self.entry_text = tk.Entry(form, font=TEXT_FONT)
+        self.entry_text.pack(fill="x", pady=6)
 
         buttons = tk.Frame(form)
-        buttons.pack(fill="x", pady=(0, 4))
-        self.start_button = tk.Button(buttons, text="Start", command=self.start_entry)
-        self.stop_button = tk.Button(buttons, text="Stop", command=self.stop_entry)
+        buttons.pack(fill="x", pady=(0, 6))
+        self.start_button = tk.Button(
+            buttons, text="Start", command=self.start_entry, font=TEXT_FONT, width=8
+        )
+        self.stop_button = tk.Button(
+            buttons, text="Stop", command=self.stop_entry, font=TEXT_FONT, width=8
+        )
         self.start_button.pack(side="left")
-        self.stop_button.pack(side="left", padx=(6, 0))
+        self.stop_button.pack(side="left", padx=(8, 0))
 
-        tk.Label(root, text="Today's entries").pack(anchor="w", padx=8, pady=(6, 0))
-        self.listbox = tk.Listbox(root, height=12, font=("Courier", 11))
-        self.listbox.pack(fill="both", expand=True, padx=8, pady=(2, 8))
+        tk.Label(root, text="Today's entries", font=STRONG_FONT).pack(
+            anchor="w", padx=10, pady=(6, 2)
+        )
+        self.listbox = tk.Listbox(root, height=14, font=MONO_FONT)
+        self.listbox.pack(fill="both", expand=True, padx=10, pady=(2, 10))
 
         self.refresh()
 
@@ -83,12 +99,13 @@ class TimeLogApp:
     def render_status(self, now: datetime) -> None:
         idx = find_open(self.entries)
         if idx is None:
-            self.status_label.config(text="Status: idle")
+            self.status_label.config(text="Status: idle", fg=ACCENT)
         else:
             entry = self.entries[idx]
             elapsed = entry.duration(now)
             self.status_label.config(
-                text=f"Status: running '{entry.text}' ({format_duration(elapsed)} elapsed)"
+                text=f"Status: running '{entry.text}' ({format_duration(elapsed)} elapsed)",
+                fg=ACCENT,
             )
         self.render_summary(now)
 
@@ -111,24 +128,40 @@ class TimeLogApp:
         end_local = datetime.combine(today + timedelta(days=1), time.min, tzinfo=tzinfo).astimezone(timezone.utc)
         return start_local, end_local
 
+    def week_window(self, now: datetime) -> tuple[datetime, datetime]:
+        tzinfo = now.astimezone().tzinfo
+        today = now.astimezone().date()
+        weekday = today.weekday()  # Monday=0
+        week_start = today - timedelta(days=weekday)
+        week_end = week_start + timedelta(days=7)
+        start_local = datetime.combine(week_start, time.min, tzinfo=tzinfo).astimezone(timezone.utc)
+        end_local = datetime.combine(week_end, time.min, tzinfo=tzinfo).astimezone(timezone.utc)
+        return start_local, end_local
+
     def render_summary(self, now: datetime) -> None:
-        start_local, end_local = self.today_window(now)
+        today_total = self.total_for_range(*self.today_window(now), now=now)
+        week_total = self.total_for_range(*self.week_window(now), now=now)
+
+        remaining_today = max(timedelta(hours=8) - today_total, timedelta(0))
+        remaining_week = max(timedelta(hours=40) - week_total, timedelta(0))
+
+        self.summary_label.config(
+            text=(
+                f"Today: {format_hhmm(today_total)} worked, {format_hhmm(remaining_today)} to 08:00\n"
+                f"Week:  {format_hhmm(week_total)} worked, {format_hhmm(remaining_week)} to 40:00"
+            )
+        )
+
+    def total_for_range(self, start_utc: datetime, end_utc: datetime, now: datetime) -> timedelta:
         total = timedelta(0)
         for entry in self.entries:
             entry_end = entry.end or now
-            latest_start = max(entry.start, start_local)
-            earliest_end = min(entry_end, end_local)
+            latest_start = max(entry.start, start_utc)
+            earliest_end = min(entry_end, end_utc)
             if earliest_end <= latest_start:
                 continue
             total += earliest_end - latest_start
-
-        target = timedelta(hours=8)
-        remaining = target - total
-        if remaining < timedelta(0):
-            remaining = timedelta(0)
-        self.summary_label.config(
-            text=f"Today: {format_hhmm(total)} worked, {format_hhmm(remaining)} remaining to 08:00"
-        )
+        return total
 
     def start_entry(self) -> None:
         text = self.entry_text.get().strip()
