@@ -1,0 +1,9 @@
+2025-12-14T09:00:00+00:00 2025-12-14T09:30:00+00:00|Plan day and triage inbox #planning
+2025-12-14T09:30:00+00:00 2025-12-14T11:30:00+00:00|Implement feature flag toggle for checkout flow #feature #backend
+2025-12-14T11:30:00+00:00 2025-12-14T12:00:00+00:00|Code review PRs #code-review
+2025-12-14T12:00:00+00:00 2025-12-14T13:00:00+00:00|Lunch
+2025-12-14T13:00:00+00:00 2025-12-14T14:30:00+00:00|Write unit tests for payment service #testing #backend
+2025-12-14T14:30:00+00:00 2025-12-14T15:00:00+00:00|Standup + sync with product #meeting
+2025-12-14T15:00:00+00:00 2025-12-14T16:30:00+00:00|Debug production error on webhook retries #incident #backend
+2025-12-14T16:30:00+00:00 2025-12-14T17:00:00+00:00|Document changes and update runbooks #docs
+2025-12-14T17:00:00+00:00 2025-12-14T17:30:00+00:00|Wrap up and plan tomorrow #planning

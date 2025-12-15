@@ -33,9 +33,11 @@ The `ui` command launches a simple window similar to gtimelog: type what you're 
 
 Run `pytimelog tui` for a split-pane terminal view (inspired by lazygit) that shows today's or this week's entries, highlights the running entry, and lets you start/stop without leaving the keyboard.
 
-- `↑/↓` or `k/j` to move through entries
-- `v` toggles between today/week views
+- `↑/↓` or `k/j` scroll the day/week panes (see footer for active target)
+- `Tab` switches scroll focus between day and week panes
 - `n` starts a new entry (prompts for text)
+  - Include `@HH:MM` to backdate the start time for today
+  - Include two times `@HH:MM @HH:MM` to add a completed entry immediately (start/end) without leaving one running
 - `x` stops the running entry
 - `r` reloads the log file
 - `q` quits
@@ -46,3 +48,5 @@ Run `pytimelog tui` for a split-pane terminal view (inspired by lazygit) that sh
 - Multiple tags are allowed; time is counted toward each tag independently.
 - If no tags are present, the time is grouped under `(untagged)`.
 - Reports summarize by tag; tags are case-insensitive for sorting but keep their original spelling in output.
+
+![Terminal UI screenshot](images/image.png)
