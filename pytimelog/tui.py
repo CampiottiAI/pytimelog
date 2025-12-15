@@ -9,6 +9,7 @@ from typing import List, Tuple
 from .storage import (
     Entry,
     append_entry,
+    check_overlap,
     find_open,
     parse_time_of_day,
     read_entries,
@@ -492,22 +493,36 @@ class TerminalUI:
         self.message = text
         self.message_error = error
 
-    def parse_start_override(self, raw_text: str, now: datetime) -> tuple[str, datetime | None]:
-        """Extract @HH:MM override from text, returning cleaned text and local start time."""
-        match = re.search(r"@(?P<time>\d{1,2}:\d{2})", raw_text)
-        if not match:
-            return raw_text.strip(), None
-        time_text = match.group("time")
-        try:
-            hour, minute = parse_time_of_day(time_text)
-        except ValueError:
-            raise ValueError(f"Invalid start time: {time_text}") from None
+    def parse_time_overrides(self, raw_text: str, now: datetime) -> tuple[str, datetime | None, datetime | None]:
+        """Extract @HH:MM tokens; first is start, optional second is end."""
+        matches = list(re.finditer(r"@(?P<time>\d{1,2}:\d{2})", raw_text))
+        if not matches:
+            return raw_text.strip(), None, None
+        if len(matches) > 2:
+            raise ValueError("Specify at most two times (start and optional end).")
 
-        cleaned = (raw_text[: match.start()] + raw_text[match.end() :]).strip()
-        cleaned = " ".join(cleaned.split())
         tzinfo = now.astimezone().tzinfo
-        local_start = datetime.combine(now.astimezone().date(), time(hour=hour, minute=minute, tzinfo=tzinfo))
-        return cleaned, local_start
+        today = now.astimezone().date()
+        parsed_times: list[datetime] = []
+        for match in matches:
+            time_text = match.group("time")
+            try:
+                hour, minute = parse_time_of_day(time_text)
+            except ValueError:
+                raise ValueError(f"Invalid time: {time_text}") from None
+            parsed_times.append(datetime.combine(today, time(hour=hour, minute=minute, tzinfo=tzinfo)))
+
+        cleaned_parts: list[str] = []
+        last_index = 0
+        for match in matches:
+            cleaned_parts.append(raw_text[last_index : match.start()])
+            last_index = match.end()
+        cleaned_parts.append(raw_text[last_index:])
+        cleaned = " ".join("".join(cleaned_parts).strip().split())
+
+        start_local = parsed_times[0]
+        end_local = parsed_times[1] if len(parsed_times) == 2 else None
+        return cleaned, start_local, end_local
 
     def start_entry(self) -> None:
         text, cancelled = self.prompt("Start entry: ")
@@ -515,25 +530,51 @@ class TerminalUI:
             self.notify("Start cancelled.", False)
             return
         now_local = local_now()
+        entries = read_entries()
+        if find_open(entries) is not None:
+            self.notify("An entry is already running.", True)
+            return
         try:
-            text, override_start = self.parse_start_override(text, now_local)
+            text, start_override, end_override = self.parse_time_overrides(text, now_local)
         except ValueError as exc:
             self.notify(str(exc), True)
             return
         if not text:
             self.notify("Please enter a description.", True)
             return
-        entries = read_entries()
-        if find_open(entries) is not None:
-            self.notify("An entry is already running.", True)
+
+        if end_override is not None:
+            start_local = start_override or now_local
+            end_local = end_override
+            if end_local <= start_local:
+                self.notify("End time must be after start time.", True)
+                return
+            if end_local > now_local:
+                self.notify("End time cannot be in the future.", True)
+                return
+            new_entry = Entry(start=to_utc(start_local), end=to_utc(end_local), text=text)
+            overlap = check_overlap(entries, new_entry, now=new_entry.end)
+            if overlap:
+                other, duration = overlap
+                other_local = other.start.astimezone(now_local.tzinfo)
+                self.notify(
+                    f"Overlaps with entry at {other_local:%Y-%m-%d %H:%M} "
+                    f"({format_duration(duration)})",
+                    True,
+                )
+                return
+            append_entry(new_entry)
+            self.reload_entries()
+            self.notify(f"Added: {text} {start_local:%H:%M}-{end_local:%H:%M}", False)
             return
-        start_local = override_start or now_local
+
+        start_local = start_override or now_local
         if start_local > now_local:
             self.notify("Start time cannot be in the future.", True)
             return
         append_entry(Entry(start=to_utc(start_local), end=None, text=text))
         self.reload_entries()
-        suffix = f" @ {start_local.astimezone().strftime('%H:%M')}" if override_start else ""
+        suffix = f" @ {start_local.astimezone().strftime('%H:%M')}" if start_override else ""
         self.notify(f"Started: {text}{suffix}", False)
 
     def stop_entry(self) -> None:
