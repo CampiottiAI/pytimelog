@@ -86,38 +86,7 @@ func renderMainView(m Model) string {
 	if m.viewMode == ViewMonth {
 		mainContent = components.RenderMonthHeatmap(m.entries, m.now, leftWidth, mainHeight, clampDuration, BoxStyle)
 	} else if m.viewMode == ViewWeek {
-		// For week view, show both tree and heatmap
-		treeHeight := mainHeight / 2
-		heatmapHeight := mainHeight - treeHeight - 1
-		if treeHeight < 3 {
-			treeHeight = 3
-		}
-		if heatmapHeight < 3 {
-			heatmapHeight = 3
-		}
-		groups := GroupByTag(m.entries, startUTC, endUTC, m.now)
-		// Convert to components.TagGroup
-		compGroups := make([]components.TagGroup, len(groups))
-		for i, g := range groups {
-			compGroups[i] = components.TagGroup{
-				Tag:      g.Tag,
-				Duration: g.Duration,
-				Entries:  g.Entries,
-				Tasks:    g.Tasks,
-				TaskList: make([]components.TaskItem, len(g.TaskList)),
-			}
-			for j, t := range g.TaskList {
-				compGroups[i].TaskList[j] = components.TaskItem{
-					Text:     t.Text,
-					Duration: t.Duration,
-					Start:    t.Start,
-					End:      t.End,
-				}
-			}
-		}
-		treeView := components.RenderTree(compGroups, leftWidth, treeHeight, TreeTagStyle, TreeTaskStyle, TreeDurationStyle, BoxStyle, GetTagColor, FormatDurationShort)
-		heatmapView := components.RenderWeekHeatmap(m.entries, m.now, leftWidth, heatmapHeight, clampDuration, BoxStyle)
-		mainContent = lipgloss.JoinVertical(lipgloss.Left, treeView, heatmapView)
+		mainContent = renderWeekView(m.entries, startUTC, endUTC, m.now, leftWidth, mainHeight)
 	} else if m.viewMode == ViewToday {
 		mainContent = renderTodayView(m.entries, startUTC, endUTC, m.now, leftWidth, mainHeight)
 	} else {
@@ -327,6 +296,169 @@ func renderTodayView(entries []storage.Entry, startUTC, endUTC, now time.Time, w
 
 		lines = append(lines, line)
 		lineCount++
+	}
+
+	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
+	return BoxStyle.Width(width).Height(height).Render(content)
+}
+
+// renderWeekView renders a list of the week's tasks grouped by day of the week.
+func renderWeekView(entries []storage.Entry, startUTC, endUTC, now time.Time, width, height int) string {
+	// Filter entries for the week
+	var weekEntries []storage.Entry
+	for _, entry := range entries {
+		if clampDuration(entry, startUTC, endUTC, now) > 0 {
+			weekEntries = append(weekEntries, entry)
+		}
+	}
+
+	if len(weekEntries) == 0 {
+		return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, lipgloss.NewStyle().Foreground(lipgloss.Color("#888888")).Render("No entries this week."))
+	}
+
+	// Convert UTC times to local timezone for grouping
+	tz := now.Location()
+
+	// Group entries by day of the week
+	// Map: day index (0=Monday, 6=Sunday) -> entries for that day
+	dayGroups := make(map[int][]storage.Entry)
+
+	for _, entry := range weekEntries {
+		// Determine which day this entry belongs to (use start time)
+		startLocal := entry.Start.In(tz)
+		dayIndex := int(startLocal.Weekday())
+		if dayIndex == 0 {
+			dayIndex = 7 // Sunday = 7, but we want it to be index 6
+		}
+		dayIndex-- // Monday = 0, Sunday = 6
+
+		dayGroups[dayIndex] = append(dayGroups[dayIndex], entry)
+	}
+
+	// Day names in order (Monday to Sunday)
+	dayNames := []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
+
+	// Sort entries within each day by end time (descending - most recent first)
+	for dayIndex := range dayGroups {
+		sort.Slice(dayGroups[dayIndex], func(i, j int) bool {
+			endI := now
+			if dayGroups[dayIndex][i].End != nil {
+				endI = *dayGroups[dayIndex][i].End
+			}
+			endJ := now
+			if dayGroups[dayIndex][j].End != nil {
+				endJ = *dayGroups[dayIndex][j].End
+			}
+			return endI.After(endJ)
+		})
+	}
+
+	var lines []string
+	maxLines := height - 2
+	lineCount := 0
+
+	// Determine today's day index (0=Monday, 6=Sunday)
+	todayLocal := now.In(tz)
+	todayDayIndex := int(todayLocal.Weekday())
+	if todayDayIndex == 0 {
+		todayDayIndex = 7 // Sunday = 7
+	}
+	todayDayIndex-- // Monday = 0, Sunday = 6
+
+	// Create descending day order starting from today going backwards
+	// If today is Friday (4), order is: 4, 3, 2, 1, 0, 6, 5
+	var dayOrder []int
+	for i := 0; i < 7; i++ {
+		dayIndex := (todayDayIndex - i + 7) % 7
+		dayOrder = append(dayOrder, dayIndex)
+	}
+
+	for _, dayIndex := range dayOrder {
+		dayEntries, hasEntries := dayGroups[dayIndex]
+		if !hasEntries || len(dayEntries) == 0 {
+			continue // Skip days with no entries
+		}
+
+		// Check if we have space for the day header
+		if lineCount >= maxLines {
+			break
+		}
+
+		// Day header: "> monday" (styled like tree headers)
+		dayHeader := "> " + TreeTagStyle.Render(dayNames[dayIndex])
+		lines = append(lines, dayHeader)
+		lineCount++
+
+		// Add tasks for this day
+		for _, entry := range dayEntries {
+			if lineCount >= maxLines {
+				break
+			}
+
+			// Convert start/end times to local timezone
+			startLocal := entry.Start.In(tz)
+			endLocal := now
+			if entry.End != nil {
+				endLocal = entry.End.In(tz)
+			}
+
+			// Format time range
+			timeRange := startLocal.Format("15:04") + " - " + endLocal.Format("15:04")
+
+			// Extract task text without tags
+			taskText := removeTags(entry.Text)
+
+			// Extract tags
+			tags := entry.Tags()
+
+			// Build the line: "- (HH:MM - HH:MM) <task> <tag1> <tag2>"
+			prefix := "- (" + timeRange + ") " + taskText
+
+			// Render tags with colors
+			var tagParts []string
+			for _, tag := range tags {
+				tagColor := GetTagColor(tag)
+				tagStyle := lipgloss.NewStyle().Foreground(tagColor)
+				tagParts = append(tagParts, tagStyle.Render("#"+tag))
+			}
+			tagsStr := strings.Join(tagParts, " ")
+
+			// Calculate available width for the line
+			// Account for box padding (2 chars on each side = 4 total)
+			availableWidth := width - 4
+
+			// Get visible widths (accounting for ANSI escape codes)
+			prefixVisible := lipgloss.Width(prefix)
+			tagsVisible := lipgloss.Width(tagsStr)
+
+			var line string
+			if len(tags) > 0 {
+				if prefixVisible+tagsVisible+1 <= availableWidth {
+					// Tags fit on the same line - align to right
+					spacesNeeded := availableWidth - prefixVisible - tagsVisible
+					line = prefix + strings.Repeat(" ", spacesNeeded) + tagsStr
+				} else {
+					// Tags don't fit - put them after task text with a space
+					line = prefix + " " + tagsStr
+				}
+			} else {
+				// No tags
+				line = prefix
+			}
+
+			// Truncate if line exceeds available width
+			if lipgloss.Width(line) > availableWidth {
+				// Use lipgloss to truncate while preserving ANSI codes
+				line = lipgloss.Place(availableWidth, 1, lipgloss.Left, lipgloss.Top, line)
+			}
+
+			lines = append(lines, line)
+			lineCount++
+		}
+	}
+
+	if len(lines) == 0 {
+		return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, lipgloss.NewStyle().Foreground(lipgloss.Color("#888888")).Render("No entries this week."))
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
