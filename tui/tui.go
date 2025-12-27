@@ -766,6 +766,13 @@ func (ui *TerminalUI) Prompt(promptText string) (string, bool) {
 
 		// Draw prompt box on main screen
 		ui.drawBox(startY, startX, boxHeight, boxWidth, title, true)
+		// Fill box interior with background to hide content behind
+		bgStyle := tcell.StyleDefault.Background(tcell.ColorBlack)
+		for row := startY + 1; row < startY+boxHeight-1; row++ {
+			for col := startX + 1; col < startX+boxWidth-1; col++ {
+				ui.screen.SetContent(col, row, ' ', nil, bgStyle)
+			}
+		}
 		display := string(buffer)
 		displayText := display
 		if len(displayText) > boxWidth-4 {
