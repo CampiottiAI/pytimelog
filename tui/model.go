@@ -271,12 +271,16 @@ func (m Model) View() string {
 
 // handleModalKey handles keyboard input when modal is shown.
 func (m Model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc", "e", "q":
-		if m.modalType == "help" {
-			m.showModal = false
-			return m, nil
-		}
+	key := msg.String()
+	
+	// Handle e/q specially for help modal only
+	if (key == "e" || key == "q") && m.modalType == "help" {
+		m.showModal = false
+		return m, nil
+	}
+	
+	switch key {
+	case "esc":
 		m.showModal = false
 		m.modalInput = ""
 		m.modalSuggestions = []string{}
@@ -299,7 +303,7 @@ func (m Model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	default:
-		// Handle text input
+		// Handle text input (including e/q for new entry modal)
 		if m.modalType == "new" {
 			if msg.Type == tea.KeyRunes {
 				m.modalInput += string(msg.Runes)
