@@ -38,13 +38,14 @@ Run `lazytime tui` (or `./lazytime tui` if built locally) for a split-pane termi
 
 ### Keyboard Shortcuts
 
-- `↑/↓` or `k/j` scroll the day/week panes (see footer for active target)
-- `Tab` switches scroll focus between day and week panes
+- `1/2` switch between Today and Week views
+- `↑/↓` scroll the active pane
 - `n` starts a new entry (prompts for text)
   - Include `@HH:MM` to backdate the start time for today
   - Include two times `@HH:MM @HH:MM` to add a completed entry immediately (start/end) without leaving one running
 - `x` stops the running entry
 - `r` reloads the log file
+- `e` or `?` shows help
 - `q` or `Esc` quits
 
 ## Tagging details
