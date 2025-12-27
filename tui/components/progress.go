@@ -8,10 +8,26 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// formatDurationCompact formats duration as compact string (e.g., "5h", "8h", "30m").
+func formatDurationCompact(d time.Duration) string {
+	totalSeconds := int(d.Seconds())
+	hours := totalSeconds / 3600
+	minutes := (totalSeconds % 3600) / 60
+
+	if hours > 0 {
+		return fmt.Sprintf("%dh", hours)
+	} else if minutes > 0 {
+		return fmt.Sprintf("%dm", minutes)
+	}
+	return fmt.Sprintf("%ds", totalSeconds)
+}
+
 // RenderProgressBar renders a progress bar for goal tracking.
-func RenderProgressBar(current, target time.Duration, label string, width int, progressStyle lipgloss.Style, formatDuration func(time.Duration) string) string {
+// Uses a two-line layout: label + duration on top, bar on bottom.
+func RenderProgressBar(current, target time.Duration, label string, barWidth int, progressStyle lipgloss.Style) string {
 	if target <= 0 {
-		return label + ": N/A"
+		labelStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ffffff"))
+		return labelStyle.Render(label + ": N/A")
 	}
 
 	percent := float64(current) / float64(target)
@@ -19,11 +35,19 @@ func RenderProgressBar(current, target time.Duration, label string, width int, p
 		percent = 1.0
 	}
 
-	barWidth := width - 20 // Leave space for text
-	if barWidth < 10 {
-		barWidth = 10
-	}
+	// Format duration compactly (e.g., "5h/8h")
+	currentStr := formatDurationCompact(current)
+	targetStr := formatDurationCompact(target)
+	durationText := currentStr + "/" + targetStr
 
+	// Style the label with duration (e.g., "Today: 5h/8h")
+	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ffffff"))
+	durationStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
+	styledLabel := labelStyle.Render(label + ":")
+	styledDuration := durationStyle.Render(" " + durationText)
+	firstLine := styledLabel + styledDuration
+
+	// Build progress bar
 	filled := int(float64(barWidth) * percent)
 	empty := barWidth - filled
 
@@ -37,17 +61,18 @@ func RenderProgressBar(current, target time.Duration, label string, width int, p
 
 	styledBar := progressStyle.Render(bar)
 
-	percentText := formatDuration(current) + " / " + formatDuration(target)
-	percentNum := int(percent * 100)
-	if percentNum > 100 {
-		percentNum = 100
-	}
+	// Format percentage and style it in bold
+	percentText := fmt.Sprintf(" %.0f%%", percent*100)
+	percentStyle := lipgloss.NewStyle().Bold(true)
+	styledPercent := percentStyle.Render(percentText)
 
-	return lipgloss.JoinHorizontal(lipgloss.Left,
-		label+":",
-		styledBar,
-		fmt.Sprintf("%d%%", percentNum),
-		"("+percentText+")",
+	// Join bar and percentage on the same line
+	barLine := styledBar + styledPercent
+
+	// Join label+duration (top) and bar+percentage (bottom) vertically
+	return lipgloss.JoinVertical(lipgloss.Left,
+		firstLine,
+		barLine,
 	)
 }
 
@@ -84,9 +109,23 @@ func RenderGoalProgress(entries []storage.Entry, now time.Time, targetToday, tar
 		weekTotal += clampDuration(entry, weekStartUTC, weekEndUTC, now)
 	}
 
-	todayBar := RenderProgressBar(todayTotal, targetToday, "Today", width, getProgressStyle(todayTotal, targetToday), formatDuration)
-	weekBar := RenderProgressBar(weekTotal, targetWeek, "Week", width, getProgressStyle(weekTotal, targetWeek), formatDuration)
+	// Account for box padding (2 chars on each side = 4 total)
+	boxPadding := 20
+	availableWidth := width - boxPadding
+	if availableWidth < 10 {
+		availableWidth = 10
+	}
+
+	// Calculate the maximum bar width that both bars can use
+	// Use the full available width for the bars to evenly space content
+	barWidth := availableWidth
+	if barWidth < 5 {
+		barWidth = 5
+	}
+
+	// Render both bars with the same width
+	todayBar := RenderProgressBar(todayTotal, targetToday, "Today", barWidth, getProgressStyle(todayTotal, targetToday))
+	weekBar := RenderProgressBar(weekTotal, targetWeek, "Week", barWidth, getProgressStyle(weekTotal, targetWeek))
 
 	return lipgloss.JoinVertical(lipgloss.Left, todayBar, weekBar)
 }
-
