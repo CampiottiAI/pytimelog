@@ -1,5 +1,7 @@
 # lazytime
 
+![Terminal UI screenshot](images/image.png)
+
 Minimal CLI time logger inspired by gtimelog. Stores entries in a single text file (default `~/.lazytime/log.txt`) using UTC timestamps and summarizes time by tags.
 
 ## Quickstart
@@ -55,4 +57,4 @@ Run `lazytime tui` (or `./lazytime tui` if built locally) for a split-pane termi
 - If no tags are present, the time is grouped under `(untagged)`.
 - Reports summarize by tag; tags are case-insensitive for sorting but keep their original spelling in output.
 
-![Terminal UI screenshot](images/image.png)
+
