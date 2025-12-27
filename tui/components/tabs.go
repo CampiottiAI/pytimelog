@@ -10,12 +10,11 @@ type ViewMode int
 const (
 	ViewToday ViewMode = iota
 	ViewWeek
-	ViewMonth
 )
 
 // RenderTabs renders the tab navigation bar.
 func RenderTabs(activeView ViewMode, width int, tabActive, tabInactive lipgloss.Style) string {
-	tabs := []string{"Today", "Week", "Month"}
+	tabs := []string{"Today", "Week"}
 	var renderedTabs []string
 
 	for i, tab := range tabs {

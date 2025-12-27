@@ -130,76 +130,46 @@ func RenderMonthHeatmap(entries []storage.Entry, now time.Time, width, height in
 	availableWidth := width - boxPaddingH
 	availableHeight := height - boxPaddingV - headerHeight
 
-	// Calculate optimal grid layout
-	// Try different column counts to maximize square size
+	// Fixed grid layout: 6 columns, 5 rows (30 days total)
 	const numDays = 30
-	bestCols := 6
-	bestSquareWidth := 2
-	bestSquareHeight := 2
+	const cols = 6
+	const rows = 5
 
-	// Try column counts from 5 to 10
-	for cols := 5; cols <= 10; cols++ {
-		rows := (numDays + cols - 1) / cols // ceil division
-
-		// Calculate square dimensions that fit
-		// Available width: (cols * squareWidth) + ((cols - 1) * spacing) <= availableWidth
-		// squareWidth <= (availableWidth - (cols-1)*spacing) / cols
-		squareWidth := (availableWidth - (cols-1)*spacing) / cols
-		if squareWidth < 2 {
-			squareWidth = 2
-		}
-
-		// Available height: (rows * squareHeight) + ((rows - 1) * spacing) <= availableHeight
-		// squareHeight <= (availableHeight - (rows-1)*spacing) / rows
-		squareHeight := (availableHeight - (rows-1)*spacing) / rows
-		if squareHeight < 2 {
-			squareHeight = 2
-		}
-
-		// Check if this layout fits
-		neededWidth := (cols * squareWidth) + ((cols - 1) * spacing)
-		neededHeight := (rows * squareHeight) + ((rows - 1) * spacing)
-
-		if neededWidth <= availableWidth && neededHeight <= availableHeight {
-			// Prefer larger squares
-			if squareWidth*squareHeight > bestSquareWidth*bestSquareHeight {
-				bestCols = cols
-				bestSquareWidth = squareWidth
-				bestSquareHeight = squareHeight
-			}
-		}
+	// Calculate square dimensions that fit
+	// Available width: (cols * squareWidth) + ((cols - 1) * spacing) <= availableWidth
+	// squareWidth <= (availableWidth - (cols-1)*spacing) / cols
+	squareWidth := (availableWidth - (cols-1)*spacing) / cols
+	if squareWidth < 2 {
+		squareWidth = 2
 	}
 
-	// Ensure minimum size
-	if bestSquareWidth < 2 {
-		bestSquareWidth = 2
+	// Available height: (rows * squareHeight) + ((rows - 1) * spacing) <= availableHeight
+	// squareHeight <= (availableHeight - (rows-1)*spacing) / rows
+	squareHeight := (availableHeight - (rows-1)*spacing) / rows
+	if squareHeight < 2 {
+		squareHeight = 2
 	}
-	if bestSquareHeight < 2 {
-		bestSquareHeight = 2
-	}
-
-	rows := (numDays + bestCols - 1) / bestCols
 
 	// Render header
 	var lines []string
 	lines = append(lines, lipgloss.NewStyle().Bold(true).Render("Last 30 Days"))
 	lines = append(lines, "")
 
-	// Render grid with calculated dimensions
+	// Render grid with fixed 6x5 layout
 	for row := 0; row < rows; row++ {
 		var squareRows []string // Multiple lines per row of squares
-		for lineInRow := 0; lineInRow < bestSquareHeight; lineInRow++ {
+		for lineInRow := 0; lineInRow < squareHeight; lineInRow++ {
 			var squares []string
-			for col := 0; col < bestCols; col++ {
-				idx := row*bestCols + col
+			for col := 0; col < cols; col++ {
+				idx := row*cols + col
 				if idx >= numDays {
-					// Empty space for incomplete last row
+					// Empty space for incomplete last row (shouldn't happen with 6x5, but safety check)
 					emptySquare := lipgloss.NewStyle().
-						Width(bestSquareWidth).
+						Width(squareWidth).
 						Height(1).
-						Render(strings.Repeat(" ", bestSquareWidth))
+						Render(strings.Repeat(" ", squareWidth))
 					squares = append(squares, emptySquare)
-					if col < bestCols-1 {
+					if col < cols-1 {
 						squares = append(squares, strings.Repeat(" ", spacing))
 					}
 					continue
@@ -225,16 +195,16 @@ func RenderMonthHeatmap(entries []storage.Entry, now time.Time, width, height in
 				}
 
 				// Create square with proper width
-				squareContent := strings.Repeat("█", bestSquareWidth)
+				squareContent := strings.Repeat("█", squareWidth)
 				square := lipgloss.NewStyle().
 					Background(color).
 					Foreground(color).
-					Width(bestSquareWidth).
+					Width(squareWidth).
 					Height(1).
 					Render(squareContent)
 
 				squares = append(squares, square)
-				if col < bestCols-1 {
+				if col < cols-1 {
 					squares = append(squares, strings.Repeat(" ", spacing))
 				}
 			}

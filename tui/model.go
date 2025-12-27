@@ -17,7 +17,6 @@ type ViewMode int
 const (
 	ViewToday ViewMode = iota
 	ViewWeek
-	ViewMonth
 )
 
 // Model represents the application state.
@@ -109,9 +108,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.scrollOffset = 0 // Reset scroll when switching views
 		case "2":
 			m.viewMode = ViewWeek
-			m.scrollOffset = 0 // Reset scroll when switching views
-		case "3":
-			m.viewMode = ViewMonth
 			m.scrollOffset = 0 // Reset scroll when switching views
 		case "up", "k":
 			// Scroll up (only in Today or Week view)

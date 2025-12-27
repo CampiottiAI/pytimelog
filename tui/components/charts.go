@@ -53,7 +53,9 @@ func RenderTagChart(totals map[string]time.Duration, width, height int, chartBar
 	}
 
 	var lines []string
-	barWidth := width - 30 // Leave space for tag name and percentage
+	tagNameWidth := 20 // Increased width for tag names with # prefix
+	percentWidth := 6  // Space for percentage (e.g., "100%")
+	barWidth := width - tagNameWidth - percentWidth - 2 // Leave space for tag name, percentage, and padding
 
 	for _, item := range items {
 		filled := int(float64(barWidth) * item.Percent)
@@ -71,9 +73,18 @@ func RenderTagChart(totals map[string]time.Duration, width, height int, chartBar
 
 		tagColor := getTagColor(item.Tag)
 		tagStyle := chartLabelStyle.Copy().Foreground(tagColor)
-		tagName := tagStyle.Render(item.Tag)
-		if len(tagName) > 15 {
-			tagName = tagName[:12] + "..."
+		// Add # prefix to match UI style
+		tagNameWithPrefix := "#" + item.Tag
+		tagName := tagStyle.Render(tagNameWithPrefix)
+		// Truncate if needed (accounting for # prefix and ANSI codes)
+		visibleWidth := lipgloss.Width(tagName)
+		if visibleWidth > tagNameWidth {
+			// Truncate the tag name (without #) and add back the prefix
+			maxTagLen := tagNameWidth - 1 // -1 for the # character
+			if maxTagLen > 0 && len(item.Tag) > maxTagLen {
+				truncatedTag := item.Tag[:maxTagLen-3] + "..."
+				tagName = tagStyle.Render("#" + truncatedTag)
+			}
 		}
 
 		percentNum := int(item.Percent * 100)
@@ -81,7 +92,7 @@ func RenderTagChart(totals map[string]time.Duration, width, height int, chartBar
 		barStyled := chartBarStyle.Render(bar)
 
 		line := lipgloss.JoinHorizontal(lipgloss.Left,
-			lipgloss.NewStyle().Width(15).Render(tagName),
+			lipgloss.NewStyle().Width(tagNameWidth).Render(tagName),
 			barStyled,
 			percentText,
 		)

@@ -43,8 +43,6 @@ func renderMainView(m Model) string {
 		activeView = components.ViewToday
 	case ViewWeek:
 		activeView = components.ViewWeek
-	case ViewMonth:
-		activeView = components.ViewMonth
 	}
 	tabsSection := components.RenderTabs(activeView, width, TabActive, TabInactive)
 
@@ -74,18 +72,11 @@ func renderMainView(m Model) string {
 		weekEndLocal := weekStartLocal.AddDate(0, 0, 7)
 		startUTC = storage.ToUTC(weekStartLocal)
 		endUTC = storage.ToUTC(weekEndLocal)
-	case ViewMonth:
-		monthStart := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, tz)
-		monthEnd := monthStart.AddDate(0, 1, 0)
-		startUTC = storage.ToUTC(monthStart)
-		endUTC = storage.ToUTC(monthEnd)
 	}
 
-	// Main content (tree view or heatmap)
+	// Main content (tree view)
 	var mainContent string
-	if m.viewMode == ViewMonth {
-		mainContent = components.RenderMonthHeatmap(m.entries, m.now, leftWidth, mainHeight, clampDuration, BoxStyle)
-	} else if m.viewMode == ViewWeek {
+	if m.viewMode == ViewWeek {
 		mainContent = renderWeekView(m.entries, startUTC, endUTC, m.now, leftWidth, mainHeight, m.scrollOffset)
 	} else if m.viewMode == ViewToday {
 		mainContent = renderTodayView(m.entries, startUTC, endUTC, m.now, leftWidth, mainHeight, m.scrollOffset)
@@ -114,7 +105,7 @@ func renderMainView(m Model) string {
 	}
 
 	// Sidebar: Goals and Tags
-	goalsHeight := mainHeight / 2
+	goalsHeight := 6 // Fixed smaller height for goals box
 	tagsHeight := mainHeight - goalsHeight - 1
 	if goalsHeight < 3 {
 		goalsHeight = 3
@@ -126,10 +117,9 @@ func renderMainView(m Model) string {
 	goalsSection := components.RenderGoalProgress(m.entries, m.now, m.targetToday, m.targetWeek, rightWidth, clampDuration, GetProgressColor, FormatDurationShort)
 	goalsBox := BoxStyle.Width(rightWidth).Height(goalsHeight).Render(goalsSection)
 
-	tagTotals := CalculateTagTotals(m.entries, startUTC, endUTC, m.now)
-	tagsSection := components.RenderTagChart(tagTotals, rightWidth, tagsHeight, ChartBarStyle, ChartLabelStyle, ChartPercentStyle, BoxStyle, GetTagColor, FormatDurationShort)
+	heatmapSection := components.RenderMonthHeatmap(m.entries, m.now, rightWidth, tagsHeight, clampDuration, BoxStyle)
 
-	sidebar := lipgloss.JoinVertical(lipgloss.Left, goalsBox, tagsSection)
+	sidebar := lipgloss.JoinVertical(lipgloss.Left, goalsBox, heatmapSection)
 
 	// Combine main content and sidebar
 	contentRow := lipgloss.JoinHorizontal(lipgloss.Left, mainContent, " ", sidebar)
@@ -505,6 +495,6 @@ func renderWeekView(entries []storage.Entry, startUTC, endUTC, now time.Time, wi
 
 // renderFooter renders the footer with help text.
 func renderFooter(width int) string {
-	helpLine := "[1/2/3] Views  [n] New  [x] Stop  [r] Reload  [e/?] Help  [q] Quit"
+	helpLine := "[1/2] Views  [n] New  [x] Stop  [r] Reload  [e/?] Help  [q] Quit"
 	return FooterStyle.Width(width).Render(helpLine)
 }
