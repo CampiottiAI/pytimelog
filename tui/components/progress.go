@@ -127,5 +127,5 @@ func RenderGoalProgress(entries []storage.Entry, now time.Time, targetToday, tar
 	todayBar := RenderProgressBar(todayTotal, targetToday, "Today", barWidth, getProgressStyle(todayTotal, targetToday))
 	weekBar := RenderProgressBar(weekTotal, targetWeek, "Week", barWidth, getProgressStyle(weekTotal, targetWeek))
 
-	return lipgloss.JoinVertical(lipgloss.Left, todayBar, weekBar)
+	return lipgloss.JoinVertical(lipgloss.Left, "", todayBar, "", weekBar, "")
 }
