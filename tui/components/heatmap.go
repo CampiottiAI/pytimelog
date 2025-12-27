@@ -2,6 +2,7 @@ package components
 
 import (
 	"lazytime/storage"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -120,48 +121,131 @@ func RenderMonthHeatmap(entries []storage.Entry, now time.Time, width, height in
 		}
 	}
 
-	// Render grid (5 rows x 6 columns = 30 squares)
+	// Calculate available space (accounting for box padding: 1 top/bottom, 2 left/right)
+	boxPaddingH := 2 * 2 // left + right padding
+	boxPaddingV := 1 * 2 // top + bottom padding
+	headerHeight := 2     // "Last 30 Days" + empty line
+	spacing := 1          // spacing between squares
+
+	availableWidth := width - boxPaddingH
+	availableHeight := height - boxPaddingV - headerHeight
+
+	// Calculate optimal grid layout
+	// Try different column counts to maximize square size
+	const numDays = 30
+	bestCols := 6
+	bestSquareWidth := 2
+	bestSquareHeight := 2
+
+	// Try column counts from 5 to 10
+	for cols := 5; cols <= 10; cols++ {
+		rows := (numDays + cols - 1) / cols // ceil division
+
+		// Calculate square dimensions that fit
+		// Available width: (cols * squareWidth) + ((cols - 1) * spacing) <= availableWidth
+		// squareWidth <= (availableWidth - (cols-1)*spacing) / cols
+		squareWidth := (availableWidth - (cols-1)*spacing) / cols
+		if squareWidth < 2 {
+			squareWidth = 2
+		}
+
+		// Available height: (rows * squareHeight) + ((rows - 1) * spacing) <= availableHeight
+		// squareHeight <= (availableHeight - (rows-1)*spacing) / rows
+		squareHeight := (availableHeight - (rows-1)*spacing) / rows
+		if squareHeight < 2 {
+			squareHeight = 2
+		}
+
+		// Check if this layout fits
+		neededWidth := (cols * squareWidth) + ((cols - 1) * spacing)
+		neededHeight := (rows * squareHeight) + ((rows - 1) * spacing)
+
+		if neededWidth <= availableWidth && neededHeight <= availableHeight {
+			// Prefer larger squares
+			if squareWidth*squareHeight > bestSquareWidth*bestSquareHeight {
+				bestCols = cols
+				bestSquareWidth = squareWidth
+				bestSquareHeight = squareHeight
+			}
+		}
+	}
+
+	// Ensure minimum size
+	if bestSquareWidth < 2 {
+		bestSquareWidth = 2
+	}
+	if bestSquareHeight < 2 {
+		bestSquareHeight = 2
+	}
+
+	rows := (numDays + bestCols - 1) / bestCols
+
+	// Render header
 	var lines []string
 	lines = append(lines, lipgloss.NewStyle().Bold(true).Render("Last 30 Days"))
 	lines = append(lines, "")
 
-	for row := 0; row < 5; row++ {
-		var squares []string
-		for col := 0; col < 6; col++ {
-			idx := row*6 + col
-			if idx >= 30 {
-				break
+	// Render grid with calculated dimensions
+	for row := 0; row < rows; row++ {
+		var squareRows []string // Multiple lines per row of squares
+		for lineInRow := 0; lineInRow < bestSquareHeight; lineInRow++ {
+			var squares []string
+			for col := 0; col < bestCols; col++ {
+				idx := row*bestCols + col
+				if idx >= numDays {
+					// Empty space for incomplete last row
+					emptySquare := lipgloss.NewStyle().
+						Width(bestSquareWidth).
+						Height(1).
+						Render(strings.Repeat(" ", bestSquareWidth))
+					squares = append(squares, emptySquare)
+					if col < bestCols-1 {
+						squares = append(squares, strings.Repeat(" ", spacing))
+					}
+					continue
+				}
+
+				total := dailyTotals[idx]
+				intensity := 0.0
+				if maxDuration > 0 {
+					intensity = float64(total) / float64(maxDuration)
+				}
+
+				var color lipgloss.Color
+				if intensity == 0 {
+					color = lipgloss.Color("#333333")
+				} else if intensity < 0.25 {
+					color = lipgloss.Color("#005500")
+				} else if intensity < 0.5 {
+					color = lipgloss.Color("#00aa00")
+				} else if intensity < 0.75 {
+					color = lipgloss.Color("#00ff00")
+				} else {
+					color = lipgloss.Color("#88ff88")
+				}
+
+				// Create square with proper width
+				squareContent := strings.Repeat("█", bestSquareWidth)
+				square := lipgloss.NewStyle().
+					Background(color).
+					Foreground(color).
+					Width(bestSquareWidth).
+					Height(1).
+					Render(squareContent)
+
+				squares = append(squares, square)
+				if col < bestCols-1 {
+					squares = append(squares, strings.Repeat(" ", spacing))
+				}
 			}
-
-			total := dailyTotals[idx]
-			intensity := 0.0
-			if maxDuration > 0 {
-				intensity = float64(total) / float64(maxDuration)
-			}
-
-			var color lipgloss.Color
-			if intensity == 0 {
-				color = lipgloss.Color("#333333")
-			} else if intensity < 0.25 {
-				color = lipgloss.Color("#005500")
-			} else if intensity < 0.5 {
-				color = lipgloss.Color("#00aa00")
-			} else if intensity < 0.75 {
-				color = lipgloss.Color("#00ff00")
-			} else {
-				color = lipgloss.Color("#88ff88")
-			}
-
-			square := lipgloss.NewStyle().
-				Background(color).
-				Foreground(color).
-				Width(1).
-				Height(1).
-				Render("█")
-
-			squares = append(squares, square)
+			squareRows = append(squareRows, lipgloss.JoinHorizontal(lipgloss.Left, squares...))
 		}
-		lines = append(lines, lipgloss.JoinHorizontal(lipgloss.Left, squares...))
+		// Add all lines for this row of squares
+		lines = append(lines, squareRows...)
+		// Add spacing between rows (except after last row)
+		if row < rows-1 {
+			lines = append(lines, "")
+		}
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
