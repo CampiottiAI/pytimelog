@@ -127,26 +127,11 @@ func renderMainView(m Model) string {
 	// Footer
 	footer := renderFooter(width)
 
-	// Message (if any)
-	var messageLine string
-	if m.message != "" {
-		msgStyle := SuccessStyle
-		if m.messageError {
-			msgStyle = ErrorStyle
-		}
-		messageLine = msgStyle.Render(m.message)
-		if len(messageLine) > width {
-			messageLine = messageLine[:width]
-		}
-		messageLine = lipgloss.Place(width, 1, lipgloss.Center, lipgloss.Top, messageLine)
-	}
-
 	// Combine everything
 	return lipgloss.JoinVertical(lipgloss.Left,
 		heroSection,
 		tabsSection,
 		contentRow,
-		messageLine,
 		footer,
 	)
 }

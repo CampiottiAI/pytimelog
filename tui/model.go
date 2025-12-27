@@ -169,6 +169,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.messageError = false
 		}
 		m.setMessageTimer()
+		// Close modal and reset state
+		m.showModal = false
+		m.modalInput = ""
+		m.modalSuggestions = []string{}
+		m.modalSelected = 0
 		return m, loadEntriesCmd()
 	}
 
@@ -279,12 +284,12 @@ func (m Model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.showModal = false
 			return m, nil
 		}
-	case "up", "k":
+	case "up":
 		if len(m.modalSuggestions) > 0 {
 			m.modalSelected = max(0, m.modalSelected-1)
 		}
 		return m, nil
-	case "down", "j":
+	case "down":
 		if len(m.modalSuggestions) > 0 {
 			m.modalSelected = min(len(m.modalSuggestions)-1, m.modalSelected+1)
 		}
@@ -294,6 +299,16 @@ func (m Model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.modalType == "new" {
 			if msg.Type == tea.KeyRunes {
 				m.modalInput += string(msg.Runes)
+				// Update tag suggestions if user is typing a tag
+				tagInput := extractCurrentTagInput(m.modalInput)
+				if tagInput != "" {
+					allTags := GetUniqueTags(m.entries)
+					m.modalSuggestions = components.GetFuzzySuggestions(tagInput, allTags, 5)
+				} else {
+					m.modalSuggestions = []string{}
+				}
+			} else if msg.Type == tea.KeySpace {
+				m.modalInput += " "
 				// Update tag suggestions if user is typing a tag
 				tagInput := extractCurrentTagInput(m.modalInput)
 				if tagInput != "" {

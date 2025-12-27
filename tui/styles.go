@@ -53,12 +53,9 @@ var (
 	// Hero section
 	HeroTimerStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#00ff00")).
-			Align(lipgloss.Center).
-			Width(20)
+			Foreground(lipgloss.Color("#00ff00"))
 	HeroTaskStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#ffffff")).
-			Align(lipgloss.Center)
+			Foreground(lipgloss.Color("#ffffff"))
 	HeroTagStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#888888")).
 			Italic(true)
