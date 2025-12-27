@@ -765,7 +765,7 @@ func (ui *TerminalUI) Prompt(promptText string) (string, bool) {
 		ui.Draw()
 
 		// Draw prompt box on main screen
-		ui.drawWindowBox(ui.screen, boxHeight, boxWidth, title)
+		ui.drawBox(startY, startX, boxHeight, boxWidth, title, true)
 		display := string(buffer)
 		displayText := display
 		if len(displayText) > boxWidth-4 {
