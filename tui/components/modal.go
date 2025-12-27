@@ -36,9 +36,9 @@ func GetFuzzySuggestions(input string, allTags []string, limit int) []string {
 }
 
 // RenderModal renders a modal dialog for input.
-func RenderModal(modalType, input, tagInput string, suggestions []string, selected int, width, height int, boxStyle, tabActive, tabInactive, footerStyle lipgloss.Style) string {
+func RenderModal(modalType, input string, suggestions []string, selected int, width, height int, boxStyle, tabActive, tabInactive, footerStyle lipgloss.Style) string {
 	modalWidth := min(60, width-4)
-	modalHeight := 10
+	modalHeight := 12
 	if modalType == "help" {
 		modalHeight = min(25, height-4)
 	}
@@ -54,11 +54,11 @@ func RenderModal(modalType, input, tagInput string, suggestions []string, select
 	var lines []string
 	lines = append(lines, boxStyle.Bold(true).Render("Start New Entry"))
 	lines = append(lines, "")
-	lines = append(lines, "Description:")
-	lines = append(lines, "  "+input+"_") // Cursor indicator
+	lines = append(lines, input+"_") // Cursor indicator
 	lines = append(lines, "")
-	lines = append(lines, "Tags (optional, space-separated):")
-	lines = append(lines, "  "+tagInput+"_")
+	lines = append(lines, "Tips:")
+	lines = append(lines, "  • Tags: use #tag format (e.g., #project #work)")
+	lines = append(lines, "  • Time: use @HH:MM for start time, @HH:MM @HH:MM for completed entry")
 
 	// Show suggestions if available
 	if len(suggestions) > 0 {

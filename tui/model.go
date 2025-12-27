@@ -33,10 +33,8 @@ type Model struct {
 	showModal        bool
 	modalType        string // "new" or "help"
 	modalInput       string
-	modalTagInput    string
 	modalSuggestions []string
 	modalSelected    int
-	modalField       int // 0 = description, 1 = tags
 
 	// Hero section
 	activeEntryIndex int
@@ -112,7 +110,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showModal = true
 			m.modalType = "new"
 			m.modalInput = ""
-			m.modalTagInput = ""
 			m.modalSuggestions = []string{}
 			m.modalSelected = 0
 		case "x":
@@ -255,7 +252,6 @@ func (m Model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		m.showModal = false
 		m.modalInput = ""
-		m.modalTagInput = ""
 		m.modalSuggestions = []string{}
 		return m, nil
 	case "enter":
@@ -265,10 +261,6 @@ func (m Model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.showModal = false
 			return m, nil
 		}
-	case "tab":
-		// Switch between description and tags field
-		m.modalField = 1 - m.modalField
-		return m, nil
 	case "up", "k":
 		if len(m.modalSuggestions) > 0 {
 			m.modalSelected = max(0, m.modalSelected-1)
@@ -283,26 +275,47 @@ func (m Model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Handle text input
 		if m.modalType == "new" {
 			if msg.Type == tea.KeyRunes {
-				if m.modalField == 0 {
-					m.modalInput += string(msg.Runes)
-				} else {
-					m.modalTagInput += string(msg.Runes)
-					// Update suggestions
+				m.modalInput += string(msg.Runes)
+				// Update tag suggestions if user is typing a tag
+				tagInput := extractCurrentTagInput(m.modalInput)
+				if tagInput != "" {
 					allTags := GetUniqueTags(m.entries)
-					m.modalSuggestions = components.GetFuzzySuggestions(m.modalTagInput, allTags, 5)
+					m.modalSuggestions = components.GetFuzzySuggestions(tagInput, allTags, 5)
+				} else {
+					m.modalSuggestions = []string{}
 				}
 			} else if msg.Type == tea.KeyBackspace {
-				if m.modalField == 0 && len(m.modalInput) > 0 {
+				if len(m.modalInput) > 0 {
 					m.modalInput = m.modalInput[:len(m.modalInput)-1]
-				} else if m.modalField == 1 && len(m.modalTagInput) > 0 {
-					m.modalTagInput = m.modalTagInput[:len(m.modalTagInput)-1]
-					allTags := GetUniqueTags(m.entries)
-					m.modalSuggestions = components.GetFuzzySuggestions(m.modalTagInput, allTags, 5)
+					// Update tag suggestions if user is typing a tag
+					tagInput := extractCurrentTagInput(m.modalInput)
+					if tagInput != "" {
+						allTags := GetUniqueTags(m.entries)
+						m.modalSuggestions = components.GetFuzzySuggestions(tagInput, allTags, 5)
+					} else {
+						m.modalSuggestions = []string{}
+					}
 				}
 			}
 		}
 	}
 	return m, nil
+}
+
+// extractCurrentTagInput extracts the current tag being typed (text after the last #).
+func extractCurrentTagInput(input string) string {
+	lastHash := strings.LastIndex(input, "#")
+	if lastHash == -1 {
+		return ""
+	}
+	// Get text after the last #
+	tagPart := input[lastHash+1:]
+	// Extract only the current word (up to space or end)
+	words := strings.Fields(tagPart)
+	if len(words) > 0 {
+		return words[0]
+	}
+	return tagPart
 }
 
 // startEntry starts a new entry (command).
@@ -311,18 +324,6 @@ func (m *Model) startEntry() tea.Cmd {
 		text := m.modalInput
 		if text == "" {
 			return entryStartedMsg{err: &emptyTextError{}}
-		}
-
-		// Append tags if provided
-		if m.modalTagInput != "" {
-			tags := strings.Fields(m.modalTagInput)
-			for _, tag := range tags {
-				if !strings.HasPrefix(tag, "#") {
-					text += " #" + tag
-				} else {
-					text += " " + tag
-				}
-			}
 		}
 
 		nowLocal := storage.LocalNow()

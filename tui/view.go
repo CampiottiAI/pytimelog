@@ -202,9 +202,15 @@ func renderModalView(m Model) string {
 	// Get tag suggestions if needed
 	var suggestions []string
 	if m.modalType == "new" {
-		allTags := GetUniqueTags(m.entries)
-		suggestions = components.GetFuzzySuggestions(m.modalTagInput, allTags, 5)
-		m.modalSuggestions = suggestions
+		// Extract current tag input from the single field
+		tagInput := extractCurrentTagInput(m.modalInput)
+		if tagInput != "" {
+			allTags := GetUniqueTags(m.entries)
+			suggestions = components.GetFuzzySuggestions(tagInput, allTags, 5)
+			m.modalSuggestions = suggestions
+		} else {
+			suggestions = m.modalSuggestions
+		}
 	}
 
 	// Render main view first (dimmed)
@@ -212,7 +218,7 @@ func renderModalView(m Model) string {
 	dimmed := lipgloss.NewStyle().Foreground(lipgloss.Color("#444444")).Render(mainView)
 
 	// Render modal on top
-	modal := components.RenderModal(m.modalType, m.modalInput, m.modalTagInput, suggestions, m.modalSelected, width, height, BoxStyle, TabActive, TabInactive, FooterStyle)
+	modal := components.RenderModal(m.modalType, m.modalInput, suggestions, m.modalSelected, width, height, BoxStyle, TabActive, TabInactive, FooterStyle)
 
 	// Combine (modal should overlay)
 	return lipgloss.JoinVertical(lipgloss.Left, dimmed, modal)
