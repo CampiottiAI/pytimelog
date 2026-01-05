@@ -22,9 +22,18 @@ func formatDurationCompact(d time.Duration) string {
 	return fmt.Sprintf("%ds", totalSeconds)
 }
 
+// formatDurationFull formats duration as HH:MM:SS (always includes hours, even if 00).
+func formatDurationFull(d time.Duration) string {
+	totalSeconds := int(d.Seconds())
+	hours := totalSeconds / 3600
+	minutes := (totalSeconds % 3600) / 60
+	seconds := totalSeconds % 60
+	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)
+}
+
 // RenderProgressBar renders a progress bar for goal tracking.
-// Uses a two-line layout: label + duration on top, bar on bottom.
-func RenderProgressBar(current, target time.Duration, label string, barWidth int, progressStyle lipgloss.Style) string {
+// Uses a two-line layout: done_time - remaining_time | Target Time on top, bar on bottom.
+func RenderProgressBar(current, target time.Duration, label string, barWidth int, progressStyle lipgloss.Style, targetWeek *time.Duration) string {
 	if target <= 0 {
 		labelStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ffffff"))
 		return labelStyle.Render(label + ": N/A")
@@ -35,17 +44,36 @@ func RenderProgressBar(current, target time.Duration, label string, barWidth int
 		percent = 1.0
 	}
 
-	// Format duration compactly (e.g., "5h/8h")
-	currentStr := formatDurationCompact(current)
-	targetStr := formatDurationCompact(target)
-	durationText := currentStr + "/" + targetStr
+	// Format done time as HH:MM:SS
+	doneTimeStr := formatDurationFull(current)
 
-	// Style the label with duration (e.g., "Today: 5h/8h")
+	// Calculate remaining time (can be negative if over target)
+	remaining := target - current
+
+	// Format remaining time as HH:MM:SS (handle negative)
+	var remainingTimeStr string
+	if remaining < 0 {
+		remainingTimeStr = "-" + formatDurationFull(-remaining)
+	} else {
+		remainingTimeStr = formatDurationFull(remaining)
+	}
+
+	// Format target time display
+	targetStr := formatDurationCompact(target)
+	var targetDisplay string
+	if targetWeek != nil && label == "Today" {
+		// For Today view, show both targets: "8h (40h)"
+		targetDisplay = fmt.Sprintf("Target Time: %s", targetStr)
+	} else {
+		targetDisplay = fmt.Sprintf("Target Time: %s", targetStr)
+	}
+
+	// Build the first line: "<done_time> - <remaining_time> | Target Time: Xh (Yh)"
+	firstLineText := fmt.Sprintf("%s - %s | %s", doneTimeStr, remainingTimeStr, targetDisplay)
+
+	// Style the first line
 	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ffffff"))
-	durationStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
-	styledLabel := labelStyle.Render(label + ":")
-	styledDuration := durationStyle.Render(" " + durationText)
-	firstLine := styledLabel + styledDuration
+	firstLine := labelStyle.Render(firstLineText)
 
 	// Build progress bar
 	filled := int(float64(barWidth) * percent)
@@ -124,8 +152,10 @@ func RenderGoalProgress(entries []storage.Entry, now time.Time, targetToday, tar
 	}
 
 	// Render both bars with the same width
-	todayBar := RenderProgressBar(todayTotal, targetToday, "Today", barWidth, getProgressStyle(todayTotal, targetToday))
-	weekBar := RenderProgressBar(weekTotal, targetWeek, "Week", barWidth, getProgressStyle(weekTotal, targetWeek))
+	// For Today view, pass targetWeek so it can display both targets
+	todayBar := RenderProgressBar(todayTotal, targetToday, "Today", barWidth, getProgressStyle(todayTotal, targetToday), &targetWeek)
+	// For Week view, pass nil for targetWeek
+	weekBar := RenderProgressBar(weekTotal, targetWeek, "Week", barWidth, getProgressStyle(weekTotal, targetWeek), nil)
 
 	return lipgloss.JoinVertical(lipgloss.Left, todayBar, "", weekBar)
 }
