@@ -75,7 +75,7 @@ func (m *Model) reloadEntries() error {
 		return err
 	}
 	m.entries = entries
-	m.now = storage.UTCNow()
+	m.now = storage.LocalNow()
 
 	// Find active entry
 	m.activeEntryIndex = storage.FindOpen(m.entries)
@@ -143,12 +143,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		return m, nil
 	case tickMsg:
-		m.now = storage.UTCNow()
+		m.now = storage.LocalNow()
 		m.activeEntryIndex = storage.FindOpen(m.entries)
 		return m, tickCmd()
 	case entriesLoadedMsg:
 		m.entries = msg.entries
-		m.now = storage.UTCNow()
+		m.now = storage.LocalNow()
 		m.activeEntryIndex = storage.FindOpen(m.entries)
 	case entryStoppedMsg:
 		if msg.err != nil {
@@ -272,13 +272,13 @@ func (m Model) View() string {
 // handleModalKey handles keyboard input when modal is shown.
 func (m Model) handleModalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
-	
+
 	// Handle e/q specially for help modal only
 	if (key == "e" || key == "q") && m.modalType == "help" {
 		m.showModal = false
 		return m, nil
 	}
-	
+
 	switch key {
 	case "esc":
 		m.showModal = false
